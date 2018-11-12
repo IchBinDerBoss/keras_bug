@@ -21,7 +21,7 @@ max_total_char_count = 40
 ###############################################################################
 ## Das neuronale Netz
 ###############################################################################
-def prepare_model():
+def prepare_model_with_masking():
     """prepares the model, has three inputs and one output in this form
     I removed the bigger inputs for simplicity
     """
@@ -38,6 +38,44 @@ def prepare_model():
     # Gesamtbetrag ------------------------------------------------------------
     in_betrag = Input(shape=(1,))
     out_betrag = Dense(1,activation='sigmoid')(Masking()(in_betrag)) # um affine transformationen zu ermöglichen
+    
+    ins.append(in_betrag)
+    
+    print('Sonstiger Kack Done')
+    # Kacke konkatenieren + Output --------------------------------------------
+    gesamt_out = concatenate([out_einzel, out_anzahl, out_betrag])
+    
+    # Output ------------------------------------------------------------------
+    klassen = 5
+    out_pos=Dense(klassen,activation='softmax')(gesamt_out)
+    
+    print('Out Done, starting compiling...')
+    # jetzt das Modell bauen --------------------------------------------------
+    model = Model(inputs=ins, outputs=out_pos)
+    model.compile(optimizer='rmsprop', loss='binary_crossentropy', metrics=[keras.metrics.categorical_accuracy])
+    # load weights (for demonstration)
+    model.load_weights('weights.h5')
+    print('Weights loaded')
+    
+    return model
+
+def prepare_model_without_masking():
+    """prepares the model, has three inputs and one output in this form
+    I removed the bigger inputs for simplicity
+    """
+    ins = []
+    # Zeugs -------------------------------------------------------------------
+    # Zusammenbauen
+    in_einzel = Input(shape=(1,))
+    in_anzahl = Input(shape=(1,))
+    out_einzel = Dense(1,activation='sigmoid')(in_einzel)
+    out_anzahl = Dense(1,activation='sigmoid')(in_anzahl)
+    
+    ins.append(in_einzel)
+    ins.append(in_anzahl)
+    # Gesamtbetrag ------------------------------------------------------------
+    in_betrag = Input(shape=(1,))
+    out_betrag = Dense(1,activation='sigmoid')(in_betrag) # um affine transformationen zu ermöglichen
     
     ins.append(in_betrag)
     
@@ -82,11 +120,12 @@ def comp_acc(pred,true):
 
 
 x,y = get_data()
-print('Training Data prepared')
-model = prepare_model()
-print('Modle prepared')
 
-print('Total:')
+
+model = prepare_model_with_masking()
+model2 = prepare_model_without_masking()
+
+print('Total (with Masking):')
 print(model.evaluate(x,y, verbose=0))
 print(comp_acc(model.predict(x),y))
 print('Individual:')
@@ -96,3 +135,8 @@ for i in range(0,10):
     true_y_klein = y[i:i+1]
     print(model.evaluate(tmp_x_klein,true_y_klein, verbose=0))
     print(comp_acc(model.predict(tmp_x_klein),true_y_klein))
+    
+print('Total (without Masking):')
+print(model2.evaluate(x,y, verbose=0))
+print(comp_acc(model2.predict(x),y))
+print('Individual:')
